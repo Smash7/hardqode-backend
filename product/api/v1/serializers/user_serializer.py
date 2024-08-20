@@ -12,15 +12,30 @@ class CustomUserSerializer(UserSerializer):
 
     class Meta:
         model = User
+        fields = (
+            'email',
+            'first_name',
+            'last_name',
+            'password',
+        )
+        extra_kwargs = {
+            'password': {'write_only': True},
+        }
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     """Сериализатор подписки."""
 
-    # TODO
-
     class Meta:
         model = Subscription
         fields = (
-            # TODO
+            'id',
+            'user',
+            'course',
+        )
+
+    def create(self, validated_data):
+        return Subscription.objects.create(
+            user=self.context['request'].user,
+            **validated_data
         )
