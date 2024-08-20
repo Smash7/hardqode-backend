@@ -3,7 +3,8 @@ from rest_framework import status, viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from api.v1.permissions import IsStudentOrIsAdmin, ReadOnlyOrIsAdmin
+from api.v1.permissions import (IsStudentOrIsAdmin, ReadOnlyOrIsAdmin,
+                                make_payment)
 from api.v1.serializers.course_serializer import (CourseSerializer,
                                                   CreateCourseSerializer,
                                                   CreateGroupSerializer,
@@ -54,7 +55,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
 
 class CourseViewSet(viewsets.ModelViewSet):
-    """Курсы """
+    """Курсы"""
 
     queryset = Course.objects.all()
     permission_classes = (ReadOnlyOrIsAdmin,)
@@ -69,10 +70,27 @@ class CourseViewSet(viewsets.ModelViewSet):
         detail=True,
         permission_classes=(permissions.IsAuthenticated,)
     )
-    def pay(self, request, pk):
+    def pay(self, request, pk=None):
         """Покупка доступа к курсу (подписка на курс)."""
+        course = get_object_or_404(Course, pk=pk)
+        user = request.user
 
-        # TODO
+        if Subscription.objects.filter(user=user, course=course).exists():
+            return Response(
+                {"detail": "Вы уже подписаны на этот курс."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        payment_result = make_payment(user, course)
+
+        if payment_result['status'] == 'failed':
+            return Response(
+                {"detail": payment_result['message']},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        subscription = Subscription.objects.create(user=user, course=course)
+        data = SubscriptionSerializer(subscription).data
 
         return Response(
             data=data,
